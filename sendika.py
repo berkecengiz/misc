@@ -4,7 +4,6 @@ import os
 import sys
 import re
 import pandas as pd
-import numpy as np
 
 # --- Dosya ve çıktı yolları ---
 CSV_PATH = 'files/4.csv'
@@ -13,7 +12,8 @@ OUTPUT_PATH = 'files/temizlenmis_veri.xlsx'
 UNMATCHED_PATH = 'files/eslesemeyen_kayitlar.xlsx'
 
 # --- Türkiye şehir listesi vb. ---
-iller_listesi = [ "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Aksaray", "Amasya",
+iller_listesi = [
+    "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Aksaray", "Amasya",
     "Ankara", "Antalya", "Artvin", "Aydın", "Balıkesir", "Bartın", "Batman", "Bayburt",
     "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale", "Çankırı",
     "Çorum", "Denizli", "Diyarbakır", "Düzce", "Edirne", "Elazığ", "Erzincan", "Erzurum",
@@ -55,13 +55,13 @@ ilce_il_harita = {
     "GEDIZ": "Kütahya",
     "KOYCEGIZ": "Muğla",
     "FOCA": "İzmir",
-    "PASAKOY": "Kırklareli",       # Paşaköy ilçesi Babaeski'ye bağlı
+    "PASAKOY": "Kırklareli",       
     "IPSALA": "Edirne",
     "BEYTUSSEBAP": "Şırnak",
-    "OSMANIY": "Osmaniye",         # Yazım hatalıydı, düzeltildi
+    "OSMANIY": "Osmaniye",       
     "AKHISAR": "Manisa",
     "BABAESKI": "Kırklareli",
-    "MARAS": "Kahramanmaraş",       # Kısaltma gibi, Kahramanmaraş için geçerli
+    "MARAS": "Kahramanmaraş",      
     "KORKUTELI": "Antalya",
     "KARGI": "Çorum",
     "NIKSAR": "Tokat",
@@ -71,20 +71,21 @@ ilce_il_harita = {
     "ESKIPAZAR": "Karabük",
     "EZINE": "Çanakkale",
     "URGUP": "Nevşehir",
-    "ELAZIG": "Elazığ",       # Yazım düzeltilmiş hali
+    "ELAZIG": "Elazığ",       
     "BISMIL": "Diyarbakır",
 }
 
 def normalize(text):
+    """Uppercase and normalize Turkish characters, remove non-alphanumerics, and trim whitespace."""
     if pd.isna(text):
         return ""
     text = str(text).upper()
     text = text.translate(str.maketrans("ÇĞİÖŞÜ", "CGIOSU"))
     text = re.sub(r"[^A-Z0-9 ]+", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    return re.sub(r"\s+", " ", text).strip()
 
 def find_city_row(row, unvan_whitelist):
+    """Find city for a row using whitelist, address, and known mappings."""
     unvan_norm = normalize(row.get("Ünvan", ""))
     adres_norm = normalize(row.get("Adres", ""))
 
@@ -121,7 +122,7 @@ def find_city_row(row, unvan_whitelist):
         if normalize(il) in adres_norm:
             return il
 
-    return np.nan
+    return pd.NA
 
 def main():
     # Dosya kontrolü
@@ -138,7 +139,8 @@ def main():
     # Whitelist oku
     whitelist_df = pd.read_excel(WHITELIST_PATH, engine='openpyxl')
     unvan_il_whitelist = {
-        normalize(unvan): il for unvan, il in zip(whitelist_df["Unvan"], whitelist_df["İl"])
+        normalize(unvan): il
+        for unvan, il in zip(whitelist_df["Unvan"], whitelist_df["İl"])
     }
 
     # İl eşleştir
@@ -148,14 +150,13 @@ def main():
     )
 
     # Faks sütununu kaldır
-    if "Faks" in df_filtered.columns:
-        df_filtered = df_filtered.drop(columns=["Faks"])
-    
+    df_filtered.drop(columns=["Faks"], inplace=True, errors="ignore")
+
     # --- Sıralama ve görsel düzenleme ---
-    df_filtered = df_filtered.sort_values(by=["İl", "Çalışan Sayısı"], ascending=[True, False])
+    df_filtered.sort_values(by=["İl", "Çalışan Sayısı"], ascending=[True, False], inplace=True)
     columns_ordered = ["İl"] + [col for col in df_filtered.columns if col != "İl"]
     df_filtered = df_filtered[columns_ordered]
-    
+
     # Çıktılar
     df_filtered.to_excel(OUTPUT_PATH, index=False)
     df_filtered[df_filtered["İl"].isna()].to_excel(UNMATCHED_PATH, index=False)
