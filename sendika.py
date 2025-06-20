@@ -1,166 +1,110 @@
-#!/usr/bin/env python3
-
 import os
 import sys
 import re
 import pandas as pd
 
-# --- Dosya ve çıktı yolları ---
+
 CSV_PATH = 'files/4.csv'
 WHITELIST_PATH = 'files/unvan_il_whitelist.xlsx'
 OUTPUT_PATH = 'files/temizlenmis_veri.xlsx'
 UNMATCHED_PATH = 'files/eslesemeyen_kayitlar.xlsx'
 
-# --- Türkiye şehir listesi vb. ---
-iller_listesi = [
-    "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Aksaray", "Amasya",
-    "Ankara", "Antalya", "Artvin", "Aydın", "Balıkesir", "Bartın", "Batman", "Bayburt",
-    "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale", "Çankırı",
-    "Çorum", "Denizli", "Diyarbakır", "Düzce", "Edirne", "Elazığ", "Erzincan", "Erzurum",
-    "Eskişehir", "Gaziantep", "Giresun", "Gümüşhane", "Hakkari", "Hatay", "Iğdır",
-    "Isparta", "İstanbul", "İzmir", "Kahramanmaraş", "Karabük", "Karaman", "Kars",
-    "Kastamonu", "Kayseri", "Kilis", "Kırıkkale", "Kırklareli", "Kırşehir", "Kocaeli",
-    "Konya", "Kütahya", "Malatya", "Manisa", "Mardin", "Mersin", "Muğla", "Muş",
-    "Nevşehir", "Niğde", "Ordu", "Osmaniye", "Rize", "Sakarya", "Samsun", "Siirt",
-    "Sinop", "Sivas", "Şanlıurfa", "Şırnak", "Tekirdağ", "Tokat", "Trabzon", "Tunceli",
-    "Uşak", "Van", "Yalova", "Yozgat", "Zonguldak", "Ardahan"
+
+ILLER_LISTESI = [
+    "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Aksaray", "Amasya", "Ankara", "Antalya", "Artvin", "Aydın",
+    "Balıkesir", "Bartın", "Batman", "Bayburt", "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa",
+    "Çanakkale", "Çankırı", "Çorum", "Denizli", "Diyarbakır", "Düzce", "Edirne", "Elazığ", "Erzincan", "Erzurum",
+    "Eskişehir", "Gaziantep", "Giresun", "Gümüşhane", "Hakkari", "Hatay", "Iğdır", "Isparta", "İstanbul", "İzmir",
+    "Kahramanmaraş", "Karabük", "Karaman", "Kars", "Kastamonu", "Kayseri", "Kilis", "Kırıkkale", "Kırklareli",
+    "Kırşehir", "Kocaeli", "Konya", "Kütahya", "Malatya", "Manisa", "Mardin", "Mersin", "Muğla", "Muş", "Nevşehir",
+    "Niğde", "Ordu", "Osmaniye", "Rize", "Sakarya", "Samsun", "Siirt", "Sinop", "Sivas", "Şanlıurfa", "Şırnak",
+    "Tekirdağ", "Tokat", "Trabzon", "Tunceli", "Uşak", "Van", "Yalova", "Yozgat", "Zonguldak", "Ardahan"
 ]
 
-kisa_il = {
-    "C.KALE": "Çanakkale", "Ç.KALE": "Çanakkale", "ARD.": "Ardahan",
-    "ANK.": "Ankara", "ANT.": "Antalya", "GAZ.": "Gaziantep",
-    "IST.": "İstanbul", "IZM.": "İzmir", "T.DAĞ": "Tekirdağ", "Ş.URFA": "Şanlıurfa", "URFA": "Şanlıurfa"
+KISA_IL = {
+    "C.KALE": "Çanakkale", "Ç.KALE": "Çanakkale", "ARD.": "Ardahan", "ANK.": "Ankara", "ANT.": "Antalya",
+    "GAZ.": "Gaziantep", "IST.": "İstanbul", "IZM.": "İzmir", "T.DAĞ": "Tekirdağ", "Ş.URFA": "Şanlıurfa", "URFA": "Şanlıurfa"
 }
 
-ilce_il_harita = {
-    "SANDIKLI": "Afyonkarahisar", "SERİK": "Antalya", "ESPİYE": "Giresun",
-    "ÜMRANİYE": "İstanbul", "SARIYER": "İstanbul", "ÇANKAYA": "Ankara",
-    "BODRUM": "Muğla", "FETHİYE": "Muğla", "GEBZE": "Kocaeli",
-    "TORBALI": "İzmir", "CİZRE": "Şırnak", "SALİHLİ": "Manisa",
-    "GÜLNAR": "Mersin", "YATAĞAN": "Muğla", "KIZILTEPE": "Mardin",
-    "EYYUBİYE": "Şanlıurfa", "GAZİEMİR": "İzmir", "ADAPAZARI": "Kocaeli",
-    "ULA": "İzmir", "ICEL": "Mersin", "MANAVGAT": "Antalya",
-    "AFYON": "Afyonkarahisar",
-    "SIVEREK": "Şanlıurfa",
-    "SOMA": "Manisa",
-    "AKSEHIR": "Konya",
-    "TURGUTLU": "Manisa",
-    "SURUC": "Şanlıurfa",
-    "ORTACA": "Muğla",
-    "KALKAN": "Antalya",
-    "MILAS": "Muğla",
-    "TARSUS": "Mersin",
-    "ALANYA": "Antalya",
-    "TAVSANLI": "Kütahya",
-    "GEDIZ": "Kütahya",
-    "KOYCEGIZ": "Muğla",
-    "FOCA": "İzmir",
-    "PASAKOY": "Kırklareli",       
-    "IPSALA": "Edirne",
-    "BEYTUSSEBAP": "Şırnak",
-    "OSMANIY": "Osmaniye",       
-    "AKHISAR": "Manisa",
-    "BABAESKI": "Kırklareli",
-    "MARAS": "Kahramanmaraş",      
-    "KORKUTELI": "Antalya",
-    "KARGI": "Çorum",
-    "NIKSAR": "Tokat",
-    "MENDERES": "İzmir",
-    "HAVSA": "Edirne",
-    "BORCKA": "Artvin",
-    "ESKIPAZAR": "Karabük",
-    "EZINE": "Çanakkale",
-    "URGUP": "Nevşehir",
-    "ELAZIG": "Elazığ",       
-    "BISMIL": "Diyarbakır",
+ILCE_IL_HARITA = {
+    "SANDIKLI": "Afyonkarahisar", "SERİK": "Antalya", "ESPİYE": "Giresun", "ÜMRANİYE": "İstanbul",
+    "SARIYER": "İstanbul", "ÇANKAYA": "Ankara", "BODRUM": "Muğla", "FETHİYE": "Muğla", "GEBZE": "Kocaeli",
+    "TORBALI": "İzmir", "CİZRE": "Şırnak", "SALİHLİ": "Manisa", "GÜLNAR": "Mersin", "YATAĞAN": "Muğla",
+    "KIZILTEPE": "Mardin", "EYYUBİYE": "Şanlıurfa", "GAZİEMİR": "İzmir", "ADAPAZARI": "Kocaeli", "ULA": "İzmir",
+    "ICEL": "Mersin", "MANAVGAT": "Antalya", "AFYON": "Afyonkarahisar", "SIVEREK": "Şanlıurfa", "SOMA": "Manisa",
+    "AKSEHIR": "Konya", "TURGUTLU": "Manisa", "SURUC": "Şanlıurfa", "ORTACA": "Muğla", "KALKAN": "Antalya",
+    "MILAS": "Muğla", "TARSUS": "Mersin", "ALANYA": "Antalya", "TAVSANLI": "Kütahya", "GEDIZ": "Kütahya",
+    "KOYCEGIZ": "Muğla", "FOCA": "İzmir", "PASAKOY": "Kırklareli", "IPSALA": "Edirne", "BEYTUSSEBAP": "Şırnak",
+    "OSMANIY": "Osmaniye", "AKHISAR": "Manisa", "BABAESKI": "Kırklareli", "MARAS": "Kahramanmaraş",
+    "KORKUTELI": "Antalya", "KARGI": "Çorum", "NIKSAR": "Tokat", "MENDERES": "İzmir", "HAVSA": "Edirne",
+    "BORCKA": "Artvin", "ESKIPAZAR": "Karabük", "EZINE": "Çanakkale", "URGUP": "Nevşehir", "ELAZIG": "Elazığ",
+    "BISMIL": "Diyarbakır"
 }
+
 
 def normalize(text):
-    """Uppercase and normalize Turkish characters, remove non-alphanumerics, and trim whitespace."""
     if pd.isna(text):
         return ""
     text = str(text).upper()
     text = text.translate(str.maketrans("ÇĞİÖŞÜ", "CGIOSU"))
-    text = re.sub(r"[^A-Z0-9 ]+", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
+    return re.sub(r"[^A-Z0-9 ]+", " ", text).strip()
 
-def find_city_row(row, unvan_whitelist):
-    """Find city for a row using whitelist, address, and known mappings."""
-    unvan_norm = normalize(row.get("Ünvan", ""))
-    adres_norm = normalize(row.get("Adres", ""))
 
-    # 1. Ünvan whitelist eşleşmesi
-    for key, il in unvan_whitelist.items():
-        if key in unvan_norm:
+def load_whitelist(path):
+    df = pd.read_excel(path, engine='openpyxl')
+    return {normalize(u): i for u, i in zip(df["Unvan"], df["İl"])}
+
+
+def find_city(row, whitelist):
+    unvan = normalize(row.get("Ünvan", ""))
+    adres = normalize(row.get("Adres", ""))
+
+    for k, il in whitelist.items():
+        if k in unvan:
             return il
 
-    # 2. Adresin son kelimesinden eşleşme
-    words = adres_norm.split()
+    words = adres.split()
     for word in reversed(words):
-        for il in iller_listesi:
-            if normalize(il) == word:
-                return il
-        for kisa, il in kisa_il.items():
-            if normalize(kisa) == word:
-                return il
-        for ilce, il in ilce_il_harita.items():
-            if normalize(ilce) == word:
+        if word in map(normalize, ILLER_LISTESI + list(KISA_IL.keys()) + list(ILCE_IL_HARITA.keys())):
+            return (
+                KISA_IL.get(word, ILCE_IL_HARITA.get(word, word.title()))
+                if word in KISA_IL or word in ILCE_IL_HARITA
+                else next((il for il in ILLER_LISTESI if normalize(il) == word), pd.NA)
+            )
+
+    for d in [ILCE_IL_HARITA, KISA_IL]:
+        for k, il in d.items():
+            if normalize(k) in adres:
                 return il
 
-    # 3. İlçe adının adres içinde geçmesi
-    for ilce, il in ilce_il_harita.items():
-        if normalize(ilce) in adres_norm:
-            return il
-
-    # 4. Kısaltma adres içinde
-    for kisa, il in kisa_il.items():
-        if normalize(kisa) in adres_norm:
-            return il
-
-    # 5. Şehir adının adres içinde yer alması
-    for il in iller_listesi:
-        if normalize(il) in adres_norm:
+    for il in ILLER_LISTESI:
+        if normalize(il) in adres:
             return il
 
     return pd.NA
 
+
 def main():
-    # Dosya kontrolü
     for path in [CSV_PATH, WHITELIST_PATH]:
         if not os.path.exists(path):
-            print(f"Hata: '{path}' dosyası bulunamadı!", file=sys.stderr)
+            print(f"Hata: {path} dosyası bulunamadı!", file=sys.stderr)
             sys.exit(1)
 
-    # CSV oku
     df = pd.read_csv(CSV_PATH, encoding='windows-1254', sep=';')
     df["Çalışan Sayısı"] = pd.to_numeric(df["Çalışan Sayısı"], errors="coerce")
-    df_filtered = df[df["Çalışan Sayısı"] >= 5].copy()
+    df = df[df["Çalışan Sayısı"] >= 5].copy()
 
-    # Whitelist oku
-    whitelist_df = pd.read_excel(WHITELIST_PATH, engine='openpyxl')
-    unvan_il_whitelist = {
-        normalize(unvan): il
-        for unvan, il in zip(whitelist_df["Unvan"], whitelist_df["İl"])
-    }
+    whitelist = load_whitelist(WHITELIST_PATH)
+    df["İl"] = df.apply(lambda row: find_city(row, whitelist), axis=1)
 
-    # İl eşleştir
-    df_filtered["İl"] = df_filtered.apply(
-        lambda row: find_city_row(row, unvan_il_whitelist),
-        axis=1
-    )
+    df.drop(columns=["Faks"], inplace=True, errors="ignore")
+    df.sort_values(by=["İl", "Çalışan Sayısı"], ascending=[True, False], inplace=True)
+    df = df[["İl"] + [c for c in df.columns if c != "İl"]]
 
-    # Faks sütununu kaldır
-    df_filtered.drop(columns=["Faks"], inplace=True, errors="ignore")
+    df.to_excel(OUTPUT_PATH, index=False)
+    df[df["İl"].isna()].to_excel(UNMATCHED_PATH, index=False)
+    print(f"Çıktılar oluşturuldu:\n - {OUTPUT_PATH}\n - {UNMATCHED_PATH}")
 
-    # --- Sıralama ve görsel düzenleme ---
-    df_filtered.sort_values(by=["İl", "Çalışan Sayısı"], ascending=[True, False], inplace=True)
-    columns_ordered = ["İl"] + [col for col in df_filtered.columns if col != "İl"]
-    df_filtered = df_filtered[columns_ordered]
-
-    # Çıktılar
-    df_filtered.to_excel(OUTPUT_PATH, index=False)
-    df_filtered[df_filtered["İl"].isna()].to_excel(UNMATCHED_PATH, index=False)
-    print(f"✔️ '{OUTPUT_PATH}' ve eşleşmeyen kayıtlar '{UNMATCHED_PATH}' olarak kaydedildi.")
 
 if __name__ == "__main__":
     main()
