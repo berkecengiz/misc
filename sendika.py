@@ -1,3 +1,23 @@
+"""
+sendika.py - Temizlenmiş veri oluşturmak için script
+
+Kullanım:
+Terminalde aşağıdaki komutu çalıştırın:
+
+    python sendika.py
+
+Gerekli dosyalar:
+- files/4.csv : Kaynak CSV dosyası
+- files/unvan_il_whitelist.xlsx : Ünvan-İl eşleşme dosyası
+
+Çıktılar:
+- files/temizlenmis_veri.xlsx : Temizlenmiş ve eşleşmiş kayıtlar
+- files/eslesemeyen_kayitlar.xlsx : Eşleşemeyen kayıtlar
+
+Not: Pandas ve openpyxl kütüphaneleri kurulu olmalıdır.
+"""
+
+
 import os
 import sys
 import re
