@@ -58,7 +58,7 @@ ILCE_IL_HARITA = {
     "OSMANIY": "Osmaniye", "AKHISAR": "Manisa", "BABAESKI": "Kırklareli", "MARAS": "Kahramanmaraş",
     "KORKUTELI": "Antalya", "KARGI": "Çorum", "NIKSAR": "Tokat", "MENDERES": "İzmir", "HAVSA": "Edirne",
     "BORCKA": "Artvin", "ESKIPAZAR": "Karabük", "EZINE": "Çanakkale", "URGUP": "Nevşehir", "ELAZIG": "Elazığ",
-    "BISMIL": "Diyarbakır"
+    "BISMIL": "Diyarbakır", "DATCA": "Muğla", "SILIFKE": "Mersin", "KARABURUN": "İzmir",
 }
 
 
@@ -79,30 +79,45 @@ def find_city(row, whitelist):
     unvan = normalize(row.get("Ünvan", ""))
     adres = normalize(row.get("Adres", ""))
 
+    # Check whitelist first
     for k, il in whitelist.items():
         if k in unvan:
             return il
 
+    # Create normalized lookup dictionaries
+    normalized_kisa_il = {normalize(k): v for k, v in KISA_IL.items()}
+    normalized_ilce_il = {normalize(k): v for k, v in ILCE_IL_HARITA.items()}
+    normalized_iller = {normalize(il): il for il in ILLER_LISTESI}
+    
+    # Combine all normalized keys for checking
+    all_normalized_keys = set(normalized_kisa_il.keys()) | set(normalized_ilce_il.keys()) | set(normalized_iller.keys())
+
     words = adres.split()
     for word in reversed(words):
-        if word in map(normalize, ILLER_LISTESI + list(KISA_IL.keys()) + list(ILCE_IL_HARITA.keys())):
-            return (
-                KISA_IL.get(word, ILCE_IL_HARITA.get(word, word.title()))
-                if word in KISA_IL or word in ILCE_IL_HARITA
-                else next((il for il in ILLER_LISTESI if normalize(il) == word), pd.NA)
-            )
+        if word in all_normalized_keys:
+            # Check in order of priority: abbreviations, districts, then cities
+            if word in normalized_kisa_il:
+                return normalized_kisa_il[word]
+            elif word in normalized_ilce_il:
+                return normalized_ilce_il[word]
+            elif word in normalized_iller:
+                return normalized_iller[word]
 
-    for d in [ILCE_IL_HARITA, KISA_IL]:
-        for k, il in d.items():
-            if normalize(k) in adres:
-                return il
+    # Check if any district or abbreviation keys are contained in the address
+    for original_key, il in ILCE_IL_HARITA.items():
+        if normalize(original_key) in adres:
+            return il
+    
+    for original_key, il in KISA_IL.items():
+        if normalize(original_key) in adres:
+            return il
 
+    # Check if any city name is contained in the address
     for il in ILLER_LISTESI:
         if normalize(il) in adres:
             return il
 
     return pd.NA
-
 
 def main():
     for path in [CSV_PATH, WHITELIST_PATH]:
